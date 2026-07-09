@@ -85,6 +85,7 @@ async function getPerfil(id) { return opDB('perfis', 'readonly', s => s.get(id))
 async function salvarComprovante(d) { return opDB('comprovantes', 'readwrite', s => s.add(d)) }
 async function listarComprovantes() { const r = await opDB('comprovantes', 'readonly', s => s.getAll()); return r.reverse() }
 async function deletarComprovante(id) { return opDB('comprovantes', 'readwrite', s => s.delete(id)) }
+async function atualizarComprovante(d) { return opDB('comprovantes', 'readwrite', s => s.put(d)) }
 
 // ========== LOGIN ==========
 const telaLogin = document.getElementById('tela-login')
@@ -563,12 +564,42 @@ btnSalvar.addEventListener('click', async () => {
 btnDescartar.addEventListener('click', descartarCaptura)
 
 // ========== GALERIA ==========
-function horasStr(f) {
-  const partes = []
-  if (f.normais && f.normais > 0) partes.push(`${f.normais}h normais`)
-  if (f.extra50 && f.extra50 > 0) partes.push(`${f.extra50}h 50%`)
-  if (f.extra100 && f.extra100 > 0) partes.push(`${f.extra100}h 100%`)
-  return partes.length ? partes.join(' · ') : ''
+function diaKey(iso) {
+  return iso.slice(0, 10)
+}
+
+function totalDia(fotos) {
+  let n = 0, e50 = 0, e100 = 0
+  for (const f of fotos) {
+    n += f.normais || 0
+    e50 += f.extra50 || 0
+    e100 += f.extra100 || 0
+  }
+  return { normais: n, extra50: e50, extra100: e100 }
+}
+
+async function salvarHoras(f, normais, extra50, extra100) {
+  f.normais = normais
+  f.extra50 = extra50
+  f.extra100 = extra100
+  await atualizarComprovante(f)
+}
+
+function criarInputHoras(f, tipo, valor, onSalvar) {
+  const input = document.createElement('input')
+  input.type = 'number'
+  input.step = '0.5'
+  input.min = '0'
+  input.value = valor
+  input.className = 'edit-horas-input'
+  input.addEventListener('blur', () => {
+    const novo = parseFloat(input.value) || 0
+    onSalvar(tipo, novo)
+  })
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') input.blur()
+  })
+  return input
 }
 
 async function renderGaleria() {
@@ -581,24 +612,115 @@ async function renderGaleria() {
   }
 
   vazia.classList.add('hidden')
-  container.innerHTML = fotos.map(f => {
-    const h = horasStr(f)
-    return `
-    <div class="galeria-item">
-      <img src="${f.dataUrl}" alt="Comprovante">
-      <div class="info">${new Date(f.data).toLocaleString('pt-BR')}${h ? '<br>' + h : ''}</div>
-      <button class="delete" data-id="${f.id}">&times;</button>
-    </div>
-  `}).join('')
 
-  container.querySelectorAll('.delete').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (confirm('Deletar este comprovante?')) {
-        await deletarComprovante(parseInt(btn.dataset.id))
-        renderGaleria()
+  // Agrupar por dia
+  const grupos = {}
+  for (const f of fotos) {
+    const d = diaKey(f.data)
+    if (!grupos[d]) grupos[d] = []
+    grupos[d].push(f)
+  }
+
+  const dias = Object.keys(grupos).sort().reverse()
+  container.innerHTML = ''
+
+  for (const dia of dias) {
+    const items = grupos[dia]
+    const total = totalDia(items)
+    const dataObj = new Date(dia + 'T12:00:00')
+    const dataStr = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+    const divDia = document.createElement('div')
+    divDia.className = 'galeria-dia'
+    divDia.innerHTML = `
+      <div class="galeria-dia-header">
+        <strong>${dataStr}</strong>
+        <span class="galeria-total">
+          ${total.normais > 0 ? total.normais + 'h normais' : ''}
+          ${total.extra50 > 0 ? ' · ' + total.extra50 + 'h 50%' : ''}
+          ${total.extra100 > 0 ? ' · ' + total.extra100 + 'h 100%' : ''}
+        </span>
+      </div>
+      <div class="galeria-grid" data-dia="${dia}"></div>
+    `
+    container.appendChild(divDia)
+    const grid = divDia.querySelector('.galeria-grid')
+
+    for (const f of items) {
+      const item = document.createElement('div')
+      item.className = 'galeria-item'
+
+      const img = document.createElement('img')
+      img.src = f.dataUrl
+      img.alt = 'Comprovante'
+      item.appendChild(img)
+
+      const info = document.createElement('div')
+      info.className = 'info'
+      info.innerHTML = `<div class="edit-horas-info">${new Date(f.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>`
+
+      const linha = document.createElement('div')
+      linha.className = 'edit-horas-linha'
+
+      function criarCampo(tipo, label, valorAtual) {
+        const span = document.createElement('span')
+        span.className = 'edit-horas-campo'
+        span.innerHTML = `<span class="edit-horas-label">${label}</span> <span class="edit-horas-valor" data-tipo="${tipo}">${valorAtual || 0}</span>h`
+        const valorEl = span.querySelector('.edit-horas-valor')
+
+        valorEl.addEventListener('click', () => {
+          const current = parseFloat(valorEl.textContent) || 0
+          const input = document.createElement('input')
+          input.type = 'number'
+          input.step = '0.5'
+          input.min = '0'
+          input.value = current
+          input.className = 'edit-horas-input-inline'
+          valorEl.replaceWith(input)
+          input.focus()
+          input.select()
+
+          function salvar() {
+            const novo = parseFloat(input.value) || 0
+            valorEl.textContent = novo
+            input.replaceWith(valorEl)
+            salvarHoras(f,
+              tipo === 'normais' ? novo : f.normais || 0,
+              tipo === 'extra50' ? novo : f.extra50 || 0,
+              tipo === 'extra100' ? novo : f.extra100 || 0
+            ).then(() => renderGaleria())
+          }
+
+          input.addEventListener('blur', salvar)
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { input.blur() }
+            if (e.key === 'Escape') { input.value = current; input.blur() }
+          })
+        })
+
+        linha.appendChild(span)
       }
-    })
-  })
+
+      criarCampo('normais', 'N', f.normais || 0)
+      criarCampo('extra50', '50%', f.extra50 || 0)
+      criarCampo('extra100', '100%', f.extra100 || 0)
+      info.appendChild(linha)
+
+      const del = document.createElement('button')
+      del.className = 'delete'
+      del.textContent = '\u00D7'
+      del.addEventListener('click', async () => {
+        if (confirm('Deletar este comprovante?')) {
+          await deletarComprovante(f.id)
+          renderGaleria()
+        }
+      })
+
+      item.appendChild(info)
+      item.appendChild(del)
+      grid.appendChild(item)
+    }
+  }
 }
 
 // ========== INIT ==========

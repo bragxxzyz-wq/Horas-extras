@@ -660,10 +660,35 @@ input:focus {
 }
 
 /* ---- Galeria ---- */
-.galeria {
+.galeria-dia {
+  margin-bottom: 20px;
+}
+
+.galeria-dia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.galeria-dia-header strong {
+  text-transform: capitalize;
+  color: #333;
+}
+
+.galeria-total {
+  font-size: 12px;
+  color: #1a73e8;
+  font-weight: 500;
+}
+
+.galeria-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
 }
 
 .galeria-item {
@@ -682,9 +707,55 @@ input:focus {
 }
 
 .galeria-item .info {
-  padding: 8px;
+  padding: 6px 8px 8px;
   font-size: 11px;
   color: #666;
+}
+
+.edit-horas-info {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.edit-horas-linha {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.edit-horas-campo {
+  font-size: 11px;
+  color: #444;
+  background: #f0f4ff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.edit-horas-campo:hover {
+  background: #dbe4f5;
+}
+
+.edit-horas-label {
+  color: #888;
+}
+
+.edit-horas-input-inline {
+  width: 50px;
+  padding: 2px 4px;
+  border: 1px solid #1a73e8;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  background: #fff;
+}
+
+.edit-horas-input-inline:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
 }
 
 .galeria-item .delete {
