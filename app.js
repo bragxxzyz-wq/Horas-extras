@@ -7,6 +7,7 @@ let perfilAtivoId = null
 let stream = null
 let capturedImage = null
 let isAdmin = false
+let codigoUsuario = null
 
 // ========== FIREBASE ==========
 let firestore = null
@@ -16,6 +17,8 @@ try {
 } catch (e) {
   console.warn('Firebase offline:', e.message)
 }
+
+function usuarioAtual() { return isAdmin ? '__admin__' : (codigoUsuario || '__anon__') }
 
 // ========== CRYPTO ==========
 async function sha256(str) {
@@ -120,31 +123,47 @@ async function atualizarConvite(id, data) {
 }
 
 // ========== PERFIS (IndexedDB) ==========
-async function listarPerfis() { return opDB('perfis', 'readonly', s => s.getAll()) }
-async function salvarPerfil(p) { return p.id ? opDB('perfis', 'readwrite', s => s.put(p)) : opDB('perfis', 'readwrite', s => s.add(p)) }
+async function listarPerfis() {
+  const todos = await opDB('perfis', 'readonly', s => s.getAll())
+  return todos.filter(p => p.usuario === usuarioAtual())
+}
+async function salvarPerfil(p) {
+  p.usuario = usuarioAtual()
+  return p.id ? opDB('perfis', 'readwrite', s => s.put(p)) : opDB('perfis', 'readwrite', s => s.add(p))
+}
 async function deletarPerfil(id) { return opDB('perfis', 'readwrite', s => s.delete(id)) }
-async function getPerfil(id) { return opDB('perfis', 'readonly', s => s.get(id)) }
+async function getPerfil(id) {
+  const p = await opDB('perfis', 'readonly', s => s.get(id))
+  return p && p.usuario === usuarioAtual() ? p : null
+}
 
 // ========== COMPROVANTES (IndexedDB) ==========
-async function salvarComprovante(d) { return opDB('comprovantes', 'readwrite', s => s.add(d)) }
-async function listarComprovantes() { const r = await opDB('comprovantes', 'readonly', s => s.getAll()); return r.reverse() }
+async function salvarComprovante(d) {
+  d.usuario = usuarioAtual()
+  return opDB('comprovantes', 'readwrite', s => s.add(d))
+}
+async function listarComprovantes() {
+  const r = await opDB('comprovantes', 'readonly', s => s.getAll())
+  return r.filter(c => c.usuario === usuarioAtual()).reverse()
+}
 async function deletarComprovante(id) { return opDB('comprovantes', 'readwrite', s => s.delete(id)) }
 
 // ========== HORAS DIÁRIAS (IndexedDB) ==========
 async function getHorasDia(dia) {
   const todos = await opDB('horas_diarias', 'readonly', s => s.getAll())
-  return todos.find(h => h.dia === dia) || null
+  return todos.find(h => h.dia === dia && h.usuario === usuarioAtual()) || null
 }
 
 async function salvarHorasDia(dia, normais, extra50, extra100) {
   const existente = await getHorasDia(dia)
-  const dados = { dia, normais, extra50, extra100 }
+  const dados = { dia, normais, extra50, extra100, usuario: usuarioAtual() }
   if (existente) { dados.id = existente.id; return opDB('horas_diarias', 'readwrite', s => s.put(dados)) }
   return opDB('horas_diarias', 'readwrite', s => s.add(dados))
 }
 
 async function listarHorasDias() {
-  return opDB('horas_diarias', 'readonly', s => s.getAll())
+  const todos = await opDB('horas_diarias', 'readonly', s => s.getAll())
+  return todos.filter(h => h.usuario === usuarioAtual())
 }
 
 // ========== LOGIN ==========
@@ -182,6 +201,7 @@ async function initLogin() {
       .get()
     if (!snap.empty) {
       isAdmin = false
+      codigoUsuario = codigoSalvo
       mostrarApp()
       initApp()
     } else {
@@ -203,6 +223,7 @@ document.getElementById('btn-setup').addEventListener('click', async () => {
 
   erro.classList.add('hidden')
   isAdmin = true
+  codigoUsuario = '__admin__'
   mostrarApp()
   initApp()
 })
@@ -258,6 +279,7 @@ document.getElementById('btn-login-convite').addEventListener('click', async () 
 
   erro.classList.add('hidden')
   isAdmin = false
+  codigoUsuario = codigo
   mostrarApp()
   initApp()
 })
@@ -359,6 +381,7 @@ document.getElementById('form-senha').addEventListener('submit', async (e) => {
 document.getElementById('btn-sair').addEventListener('click', () => {
   localStorage.removeItem('conviteSalvo')
   isAdmin = false
+  codigoUsuario = null
   perfilAtivoId = null
   pararCamera()
   mostrarLogin()
