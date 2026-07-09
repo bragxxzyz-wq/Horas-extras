@@ -512,6 +512,7 @@ const canvas = document.getElementById('canvas')
 const btnCapturar = document.getElementById('btn-capturar')
 const btnSalvar = document.getElementById('btn-salvar')
 const btnDescartar = document.getElementById('btn-descartar')
+const horasInputs = document.getElementById('horas-inputs')
 
 async function iniciarCamera() {
   try {
@@ -532,6 +533,7 @@ function pararCamera() {
 function descartarCaptura() {
   capturedImage = null
   canvas.classList.add('hidden'); video.classList.remove('hidden')
+  horasInputs.classList.add('hidden')
   btnCapturar.classList.remove('hidden'); btnSalvar.classList.add('hidden'); btnDescartar.classList.add('hidden')
 }
 
@@ -541,12 +543,19 @@ btnCapturar.addEventListener('click', () => {
   ctx.drawImage(video, 0, 0)
   capturedImage = canvas.toDataURL('image/jpeg', 0.9)
   canvas.classList.remove('hidden'); video.classList.add('hidden')
+  horasInputs.classList.remove('hidden')
   btnCapturar.classList.add('hidden'); btnSalvar.classList.remove('hidden'); btnDescartar.classList.remove('hidden')
 })
 
 btnSalvar.addEventListener('click', async () => {
   if (!capturedImage) return
-  await salvarComprovante({ dataUrl: capturedImage, data: new Date().toISOString() })
+  const hNorm = parseFloat(document.getElementById('horas-normais').value) || 0
+  const h50 = parseFloat(document.getElementById('horas-extra50').value) || 0
+  const h100 = parseFloat(document.getElementById('horas-extra100').value) || 0
+  await salvarComprovante({ dataUrl: capturedImage, data: new Date().toISOString(), normais: hNorm, extra50: h50, extra100: h100 })
+  document.getElementById('horas-normais').value = 0
+  document.getElementById('horas-extra50').value = 0
+  document.getElementById('horas-extra100').value = 0
   descartarCaptura()
   alert('Comprovante salvo!')
 })
@@ -554,6 +563,14 @@ btnSalvar.addEventListener('click', async () => {
 btnDescartar.addEventListener('click', descartarCaptura)
 
 // ========== GALERIA ==========
+function horasStr(f) {
+  const partes = []
+  if (f.normais && f.normais > 0) partes.push(`${f.normais}h normais`)
+  if (f.extra50 && f.extra50 > 0) partes.push(`${f.extra50}h 50%`)
+  if (f.extra100 && f.extra100 > 0) partes.push(`${f.extra100}h 100%`)
+  return partes.length ? partes.join(' · ') : ''
+}
+
 async function renderGaleria() {
   const container = document.getElementById('galeria')
   const vazia = document.getElementById('galeria-vazia')
@@ -564,13 +581,15 @@ async function renderGaleria() {
   }
 
   vazia.classList.add('hidden')
-  container.innerHTML = fotos.map(f => `
+  container.innerHTML = fotos.map(f => {
+    const h = horasStr(f)
+    return `
     <div class="galeria-item">
       <img src="${f.dataUrl}" alt="Comprovante">
-      <div class="info">${new Date(f.data).toLocaleString('pt-BR')}</div>
+      <div class="info">${new Date(f.data).toLocaleString('pt-BR')}${h ? '<br>' + h : ''}</div>
       <button class="delete" data-id="${f.id}">&times;</button>
     </div>
-  `).join('')
+  `}).join('')
 
   container.querySelectorAll('.delete').forEach(btn => {
     btn.addEventListener('click', async () => {
