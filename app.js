@@ -783,5 +783,10 @@ async function initApp() {
 
 ;(async () => {
   db = await abrirDB()
+  // Remove service worker antigo que estava com caminho errado
+  if ('serviceWorker' in navigator) {
+    const regs = await navigator.serviceWorker.getRegistrations()
+    for (const r of regs) await r.unregister()
+  }
   await initLogin()
 })()
