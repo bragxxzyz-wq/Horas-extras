@@ -637,6 +637,25 @@ input:focus {
 #btn-descartar { background: #c62828; color: #fff; }
 
 /* ---- Galeria ---- */
+.galeria-download {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.galeria-download label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.galeria-download input[type="month"] {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+}
 .galeria-dia {
   margin-bottom: 20px;
 }

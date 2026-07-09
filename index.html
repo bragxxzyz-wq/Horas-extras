@@ -258,6 +258,12 @@
       <!-- ============ GALERIA ============ -->
       <section id="page-galeria" class="page">
         <h1>Comprovantes Salvos</h1>
+        <div class="galeria-download">
+          <label>Baixar mês:
+            <input type="month" id="download-mes">
+          </label>
+          <button id="btn-download-mes" class="btn-small">Download ZIP</button>
+        </div>
         <div id="galeria" class="galeria"></div>
         <p id="galeria-vazia" class="vazia">Nenhum comprovante salvo ainda.</p>
       </section>
@@ -267,6 +273,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>

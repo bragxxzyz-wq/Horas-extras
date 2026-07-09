@@ -73,6 +73,50 @@ async function getCacheFS(key) {
   return item ? item.data : null
 }
 
+// ========== SYNC FIRESTORE (nuvem) ==========
+const FS_COLLECTIONS = { perfis: 'sync_perfis', comprovantes: 'sync_comprovantes', horas_diarias: 'sync_horas' }
+
+async function syncDoc(store, doc) {
+  if (!firestore) return
+  try {
+    const coll = firestore.collection(FS_COLLECTIONS[store])
+    if (doc.fsId) {
+      await coll.doc(doc.fsId).set(doc)
+    } else {
+      const ref = await coll.add(doc)
+      doc.fsId = ref.id
+      doc.id ? opDB(store, 'readwrite', s => s.put(doc)) : null
+    }
+  } catch {}
+}
+
+async function deleteDocFromFS(store, doc) {
+  if (!firestore || !doc.fsId) return
+  try {
+    await firestore.collection(FS_COLLECTIONS[store]).doc(doc.fsId).delete()
+  } catch {}
+}
+
+async function pullFromCloud() {
+  if (!firestore) return
+  const user = usuarioAtual()
+  for (const [store, collName] of Object.entries(FS_COLLECTIONS)) {
+    try {
+      const snap = await firestore.collection(collName).where('usuario', '==', user).get()
+      const locals = await opDB(store, 'readonly', s => s.getAll())
+      for (const fsDoc of snap.docs) {
+        const data = fsDoc.data()
+        data.fsId = fsDoc.id
+        const existente = locals.find(l => l.fsId === fsDoc.id)
+        if (!existente) {
+          delete data.id
+          await opDB(store, 'readwrite', s => s.add(data))
+        }
+      }
+    } catch {}
+  }
+}
+
 // ========== CONFIG (Firestore) ==========
 async function getConfig() {
   if (firestore) {
@@ -122,33 +166,47 @@ async function atualizarConvite(id, data) {
   }
 }
 
-// ========== PERFIS (IndexedDB) ==========
+// ========== PERFIS (IndexedDB + Nuvem) ==========
 async function listarPerfis() {
   const todos = await opDB('perfis', 'readonly', s => s.getAll())
   return todos.filter(p => p.usuario === usuarioAtual())
 }
 async function salvarPerfil(p) {
   p.usuario = usuarioAtual()
-  return p.id ? opDB('perfis', 'readwrite', s => s.put(p)) : opDB('perfis', 'readwrite', s => s.add(p))
+  const id = p.id ? await opDB('perfis', 'readwrite', s => s.put(p)) : await opDB('perfis', 'readwrite', s => s.add(p))
+  if (!p.id) p.id = id
+  syncDoc('perfis', p)
+  return id
 }
-async function deletarPerfil(id) { return opDB('perfis', 'readwrite', s => s.delete(id)) }
+async function deletarPerfil(id) {
+  const p = await opDB('perfis', 'readonly', s => s.get(id))
+  await opDB('perfis', 'readwrite', s => s.delete(id))
+  if (p) deleteDocFromFS('perfis', p)
+}
 async function getPerfil(id) {
   const p = await opDB('perfis', 'readonly', s => s.get(id))
   return p && p.usuario === usuarioAtual() ? p : null
 }
 
-// ========== COMPROVANTES (IndexedDB) ==========
+// ========== COMPROVANTES (IndexedDB + Nuvem) ==========
 async function salvarComprovante(d) {
   d.usuario = usuarioAtual()
-  return opDB('comprovantes', 'readwrite', s => s.add(d))
+  const id = await opDB('comprovantes', 'readwrite', s => s.add(d))
+  d.id = id
+  syncDoc('comprovantes', d)
+  return id
 }
 async function listarComprovantes() {
   const r = await opDB('comprovantes', 'readonly', s => s.getAll())
   return r.filter(c => c.usuario === usuarioAtual()).reverse()
 }
-async function deletarComprovante(id) { return opDB('comprovantes', 'readwrite', s => s.delete(id)) }
+async function deletarComprovante(id) {
+  const d = await opDB('comprovantes', 'readonly', s => s.get(id))
+  await opDB('comprovantes', 'readwrite', s => s.delete(id))
+  if (d) deleteDocFromFS('comprovantes', d)
+}
 
-// ========== HORAS DIÁRIAS (IndexedDB) ==========
+// ========== HORAS DIÁRIAS (IndexedDB + Nuvem) ==========
 async function getHorasDia(dia) {
   const todos = await opDB('horas_diarias', 'readonly', s => s.getAll())
   return todos.find(h => h.dia === dia && h.usuario === usuarioAtual()) || null
@@ -157,8 +215,9 @@ async function getHorasDia(dia) {
 async function salvarHorasDia(dia, normais, extra50, extra100) {
   const existente = await getHorasDia(dia)
   const dados = { dia, normais, extra50, extra100, usuario: usuarioAtual() }
-  if (existente) { dados.id = existente.id; return opDB('horas_diarias', 'readwrite', s => s.put(dados)) }
-  return opDB('horas_diarias', 'readwrite', s => s.add(dados))
+  if (existente) { dados.id = existente.id; dados.fsId = existente.fsId; await opDB('horas_diarias', 'readwrite', s => s.put(dados)) }
+  else { const id = await opDB('horas_diarias', 'readwrite', s => s.add(dados)); dados.id = id }
+  syncDoc('horas_diarias', dados)
 }
 
 async function listarHorasDias() {
@@ -646,6 +705,10 @@ async function renderGaleria() {
   const fotos = await listarComprovantes()
   const horasDias = await listarHorasDias()
 
+  // Define mês atual como padrão no input
+  const inputMes = document.getElementById('download-mes')
+  if (!inputMes.value) inputMes.value = new Date().toISOString().slice(0, 7)
+
   if (fotos.length === 0) {
     container.innerHTML = ''; vazia.classList.remove('hidden'); return
   }
@@ -767,8 +830,48 @@ async function renderGaleria() {
   }
 }
 
+// ========== DOWNLOAD COMPROVANTES ==========
+document.getElementById('btn-download-mes').addEventListener('click', async () => {
+  const mes = document.getElementById('download-mes').value
+  if (!mes) { alert('Selecione um mês.'); return }
+  const [ano, mesNum] = mes.split('-')
+  const fotos = await listarComprovantes()
+  const filtradas = fotos.filter(f => f.data && f.data.slice(0, 7) === mes)
+  if (filtradas.length === 0) { alert('Nenhum comprovante neste mês.'); return }
+
+  const zip = new JSZip()
+  const pasta = zip.folder(`comprovantes-${mes}`)
+
+  for (const f of filtradas) {
+    const dataStr = f.data.slice(0, 10).replace(/-/g, '')
+    const horaStr = f.data.slice(11, 19).replace(/:/g, '')
+    const nome = `${dataStr}_${horaStr}.jpg`
+    const blob = dataURLtoBlob(f.dataUrl)
+    pasta.file(nome, blob)
+  }
+
+  const content = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(content)
+  const a = document.createElement('a')
+  a.href = url; a.download = `comprovantes-${mes}.zip`
+  a.click()
+  URL.revokeObjectURL(url)
+})
+
+function dataURLtoBlob(dataUrl) {
+  const parts = dataUrl.split(',')
+  const mime = parts[0].match(/:(.*?);/)[1]
+  const bytes = atob(parts[1])
+  const arr = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
+
 // ========== INIT ==========
 async function initApp() {
+  // Sincronizar dados da nuvem
+  await pullFromCloud()
+
   const perfis = await listarPerfis()
   const salvo = localStorage.getItem('perfilAtivoId')
   if (salvo) perfilAtivoId = parseInt(salvo)
