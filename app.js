@@ -1,6 +1,6 @@
 const DB_NAME = 'horas-extras'
-const DB_VERSION = 4
-const STORES = ['perfis', 'comprovantes', 'horas_diarias']
+const DB_VERSION = 5
+const STORES = ['perfis', 'comprovantes', 'horas_diarias', 'cache_fs']
 
 let db = null
 let perfilAtivoId = null
@@ -50,20 +50,47 @@ function opDB(store, modo, fn) {
   })
 }
 
+// ========== OFFLINE CACHE ==========
+async function cacheFS(key, data) {
+  const todos = await opDB('cache_fs', 'readonly', s => s.getAll())
+  const existente = todos.find(x => x.key === key)
+  const obj = { key, data, ts: Date.now() }
+  if (existente) { obj.id = existente.id; return opDB('cache_fs', 'readwrite', s => s.put(obj)) }
+  return opDB('cache_fs', 'readwrite', s => s.add(obj))
+}
+
+async function getCacheFS(key) {
+  const todos = await opDB('cache_fs', 'readonly', s => s.getAll())
+  const item = todos.find(x => x.key === key)
+  return item ? item.data : null
+}
+
 // ========== CONFIG (Firestore) ==========
 async function getConfig() {
-  const doc = await firestore.collection('config').doc('admin').get()
-  return doc.exists ? doc.data() : null
+  try {
+    const doc = await firestore.collection('config').doc('admin').get()
+    if (doc.exists) { const d = doc.data(); await cacheFS('config', d); return d }
+    return null
+  } catch {
+    return getCacheFS('config')
+  }
 }
 
 async function saveConfig(config) {
   await firestore.collection('config').doc('admin').set(config)
+  await cacheFS('config', config)
 }
 
 // ========== CONVITES (Firestore) ==========
 async function listarConvites() {
-  const snap = await firestore.collection('convites').orderBy('createdAt', 'desc').get()
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+  try {
+    const snap = await firestore.collection('convites').orderBy('createdAt', 'desc').get()
+    const dados = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    await cacheFS('convites', dados)
+    return dados
+  } catch {
+    return (await getCacheFS('convites')) || []
+  }
 }
 
 async function salvarConvite(c) {
