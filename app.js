@@ -1,6 +1,6 @@
 const DB_NAME = 'horas-extras'
-const DB_VERSION = 3
-const STORES = ['perfis', 'comprovantes']
+const DB_VERSION = 4
+const STORES = ['perfis', 'comprovantes', 'horas_diarias']
 
 let db = null
 let perfilAtivoId = null
@@ -85,7 +85,23 @@ async function getPerfil(id) { return opDB('perfis', 'readonly', s => s.get(id))
 async function salvarComprovante(d) { return opDB('comprovantes', 'readwrite', s => s.add(d)) }
 async function listarComprovantes() { const r = await opDB('comprovantes', 'readonly', s => s.getAll()); return r.reverse() }
 async function deletarComprovante(id) { return opDB('comprovantes', 'readwrite', s => s.delete(id)) }
-async function atualizarComprovante(d) { return opDB('comprovantes', 'readwrite', s => s.put(d)) }
+
+// ========== HORAS DIÁRIAS (IndexedDB) ==========
+async function getHorasDia(dia) {
+  const todos = await opDB('horas_diarias', 'readonly', s => s.getAll())
+  return todos.find(h => h.dia === dia) || null
+}
+
+async function salvarHorasDia(dia, normais, extra50, extra100) {
+  const existente = await getHorasDia(dia)
+  const dados = { dia, normais, extra50, extra100 }
+  if (existente) { dados.id = existente.id; return opDB('horas_diarias', 'readwrite', s => s.put(dados)) }
+  return opDB('horas_diarias', 'readwrite', s => s.add(dados))
+}
+
+async function listarHorasDias() {
+  return opDB('horas_diarias', 'readonly', s => s.getAll())
+}
 
 // ========== LOGIN ==========
 const telaLogin = document.getElementById('tela-login')
@@ -525,6 +541,12 @@ async function iniciarCamera() {
   } catch (err) {
     alert('Não foi possível acessar a câmera: ' + err.message)
   }
+
+  const hoje = new Date().toISOString().slice(0, 10)
+  const horas = await getHorasDia(hoje)
+  document.getElementById('horas-normais').value = horas ? horas.normais : 0
+  document.getElementById('horas-extra50').value = horas ? horas.extra50 : 0
+  document.getElementById('horas-extra100').value = horas ? horas.extra100 : 0
 }
 
 function pararCamera() {
@@ -553,10 +575,9 @@ btnSalvar.addEventListener('click', async () => {
   const hNorm = parseFloat(document.getElementById('horas-normais').value) || 0
   const h50 = parseFloat(document.getElementById('horas-extra50').value) || 0
   const h100 = parseFloat(document.getElementById('horas-extra100').value) || 0
-  await salvarComprovante({ dataUrl: capturedImage, data: new Date().toISOString(), normais: hNorm, extra50: h50, extra100: h100 })
-  document.getElementById('horas-normais').value = 0
-  document.getElementById('horas-extra50').value = 0
-  document.getElementById('horas-extra100').value = 0
+  const hoje = new Date().toISOString().slice(0, 10)
+  await salvarHorasDia(hoje, hNorm, h50, h100)
+  await salvarComprovante({ dataUrl: capturedImage, data: new Date().toISOString() })
   descartarCaptura()
   alert('Comprovante salvo!')
 })
@@ -564,48 +585,13 @@ btnSalvar.addEventListener('click', async () => {
 btnDescartar.addEventListener('click', descartarCaptura)
 
 // ========== GALERIA ==========
-function diaKey(iso) {
-  return iso.slice(0, 10)
-}
-
-function totalDia(fotos) {
-  let n = 0, e50 = 0, e100 = 0
-  for (const f of fotos) {
-    n += f.normais || 0
-    e50 += f.extra50 || 0
-    e100 += f.extra100 || 0
-  }
-  return { normais: n, extra50: e50, extra100: e100 }
-}
-
-async function salvarHoras(f, normais, extra50, extra100) {
-  f.normais = normais
-  f.extra50 = extra50
-  f.extra100 = extra100
-  await atualizarComprovante(f)
-}
-
-function criarInputHoras(f, tipo, valor, onSalvar) {
-  const input = document.createElement('input')
-  input.type = 'number'
-  input.step = '0.5'
-  input.min = '0'
-  input.value = valor
-  input.className = 'edit-horas-input'
-  input.addEventListener('blur', () => {
-    const novo = parseFloat(input.value) || 0
-    onSalvar(tipo, novo)
-  })
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') input.blur()
-  })
-  return input
-}
+function diaKey(iso) { return iso.slice(0, 10) }
 
 async function renderGaleria() {
   const container = document.getElementById('galeria')
   const vazia = document.getElementById('galeria-vazia')
   const fotos = await listarComprovantes()
+  const horasDias = await listarHorasDias()
 
   if (fotos.length === 0) {
     container.innerHTML = ''; vazia.classList.remove('hidden'); return
@@ -613,7 +599,7 @@ async function renderGaleria() {
 
   vazia.classList.add('hidden')
 
-  // Agrupar por dia
+  // Agrupar fotos por dia
   const grupos = {}
   for (const f of fotos) {
     const d = diaKey(f.data)
@@ -626,85 +612,89 @@ async function renderGaleria() {
 
   for (const dia of dias) {
     const items = grupos[dia]
-    const total = totalDia(items)
     const dataObj = new Date(dia + 'T12:00:00')
     const dataStr = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+    const h = horasDias.find(x => x.dia === dia) || { normais: 0, extra50: 0, extra100: 0 }
 
     const divDia = document.createElement('div')
     divDia.className = 'galeria-dia'
-    divDia.innerHTML = `
-      <div class="galeria-dia-header">
-        <strong>${dataStr}</strong>
-        <span class="galeria-total">
-          ${total.normais > 0 ? total.normais + 'h normais' : ''}
-          ${total.extra50 > 0 ? ' · ' + total.extra50 + 'h 50%' : ''}
-          ${total.extra100 > 0 ? ' · ' + total.extra100 + 'h 100%' : ''}
-        </span>
-      </div>
-      <div class="galeria-grid" data-dia="${dia}"></div>
-    `
-    container.appendChild(divDia)
-    const grid = divDia.querySelector('.galeria-grid')
+
+    // Cabeçalho com horas editáveis
+    const header = document.createElement('div')
+    header.className = 'galeria-dia-header'
+    header.innerHTML = `<strong>${dataStr}</strong>`
+    const horasSpan = document.createElement('span')
+    horasSpan.className = 'galeria-total'
+
+    function atualizarHeaderHoras() {
+      horasSpan.innerHTML =
+        `${h.normais}h normais` +
+        (h.extra50 ? ` · ${h.extra50}h 50%` : '') +
+        (h.extra100 ? ` · ${h.extra100}h 100%` : '')
+    }
+    atualizarHeaderHoras()
+    header.appendChild(horasSpan)
+    divDia.appendChild(header)
+
+    // Campos de edição de horas do dia
+    const editRow = document.createElement('div')
+    editRow.className = 'galeria-edit-row'
+
+    function criarEdit(tipo, label) {
+      const span = document.createElement('span')
+      span.className = 'edit-horas-campo'
+      span.innerHTML = `<span class="edit-horas-label">${label}</span> <span class="edit-horas-valor">${h[tipo]}</span>h`
+      const vEl = span.querySelector('.edit-horas-valor')
+
+      vEl.addEventListener('click', () => {
+        const curr = parseFloat(vEl.textContent) || 0
+        const inp = document.createElement('input')
+        inp.type = 'number'; inp.step = '0.5'; inp.min = '0'
+        inp.value = curr
+        inp.className = 'edit-horas-input-inline'
+        vEl.replaceWith(inp)
+        inp.focus(); inp.select()
+
+        const salvar = async () => {
+          const novo = parseFloat(inp.value) || 0
+          h[tipo] = novo
+          await salvarHorasDia(dia, h.normais, h.extra50, h.extra100)
+          atualizarHeaderHoras()
+          vEl.textContent = novo
+          inp.replaceWith(vEl)
+        }
+
+        inp.addEventListener('blur', salvar)
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') inp.blur()
+          if (e.key === 'Escape') { inp.value = curr; inp.blur() }
+        })
+      })
+
+      editRow.appendChild(span)
+    }
+
+    criarEdit('normais', 'N')
+    criarEdit('extra50', '50%')
+    criarEdit('extra100', '100%')
+    divDia.appendChild(editRow)
+
+    // Grid de fotos
+    const grid = document.createElement('div')
+    grid.className = 'galeria-grid'
 
     for (const f of items) {
       const item = document.createElement('div')
       item.className = 'galeria-item'
 
       const img = document.createElement('img')
-      img.src = f.dataUrl
-      img.alt = 'Comprovante'
+      img.src = f.dataUrl; img.alt = 'Comprovante'
       item.appendChild(img)
 
       const info = document.createElement('div')
       info.className = 'info'
-      info.innerHTML = `<div class="edit-horas-info">${new Date(f.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>`
-
-      const linha = document.createElement('div')
-      linha.className = 'edit-horas-linha'
-
-      function criarCampo(tipo, label, valorAtual) {
-        const span = document.createElement('span')
-        span.className = 'edit-horas-campo'
-        span.innerHTML = `<span class="edit-horas-label">${label}</span> <span class="edit-horas-valor" data-tipo="${tipo}">${valorAtual || 0}</span>h`
-        const valorEl = span.querySelector('.edit-horas-valor')
-
-        valorEl.addEventListener('click', () => {
-          const current = parseFloat(valorEl.textContent) || 0
-          const input = document.createElement('input')
-          input.type = 'number'
-          input.step = '0.5'
-          input.min = '0'
-          input.value = current
-          input.className = 'edit-horas-input-inline'
-          valorEl.replaceWith(input)
-          input.focus()
-          input.select()
-
-          function salvar() {
-            const novo = parseFloat(input.value) || 0
-            valorEl.textContent = novo
-            input.replaceWith(valorEl)
-            salvarHoras(f,
-              tipo === 'normais' ? novo : f.normais || 0,
-              tipo === 'extra50' ? novo : f.extra50 || 0,
-              tipo === 'extra100' ? novo : f.extra100 || 0
-            ).then(() => renderGaleria())
-          }
-
-          input.addEventListener('blur', salvar)
-          input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { input.blur() }
-            if (e.key === 'Escape') { input.value = current; input.blur() }
-          })
-        })
-
-        linha.appendChild(span)
-      }
-
-      criarCampo('normais', 'N', f.normais || 0)
-      criarCampo('extra50', '50%', f.extra50 || 0)
-      criarCampo('extra100', '100%', f.extra100 || 0)
-      info.appendChild(linha)
+      info.textContent = new Date(f.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      item.appendChild(info)
 
       const del = document.createElement('button')
       del.className = 'delete'
@@ -715,11 +705,12 @@ async function renderGaleria() {
           renderGaleria()
         }
       })
-
-      item.appendChild(info)
       item.appendChild(del)
       grid.appendChild(item)
     }
+
+    divDia.appendChild(grid)
+    container.appendChild(divDia)
   }
 }
 

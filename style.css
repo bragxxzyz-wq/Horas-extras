@@ -685,6 +685,12 @@ input:focus {
   font-weight: 500;
 }
 
+.galeria-edit-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
 .galeria-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -707,32 +713,24 @@ input:focus {
 }
 
 .galeria-item .info {
-  padding: 6px 8px 8px;
-  font-size: 11px;
-  color: #666;
-}
-
-.edit-horas-info {
+  padding: 6px 8px;
   font-size: 11px;
   color: #888;
-  margin-bottom: 4px;
-}
-
-.edit-horas-linha {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
+  text-align: center;
 }
 
 .edit-horas-campo {
-  font-size: 11px;
+  font-size: 12px;
   color: #444;
   background: #f0f4ff;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .edit-horas-campo:hover {
