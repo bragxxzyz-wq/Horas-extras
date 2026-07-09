@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Horas Extras CLT</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============ TELA DE LOGIN ============ -->
+  <div id="tela-login" class="login-screen">
+    <div class="login-card">
+      <h1>Horas Extras CLT</h1>
+      <p class="login-sub">App protegido por senha</p>
+
+      <div id="login-setup" class="hidden">
+        <h2>Configurar Acesso</h2>
+        <p>Crie uma senha de administrador para proteger o app.</p>
+        <label>Senha de admin
+          <input type="password" id="setup-senha" required minlength="4">
+        </label>
+        <label>Confirmar senha
+          <input type="password" id="setup-confirmar" required minlength="4">
+        </label>
+        <p class="login-dica">Você pode gerar códigos de convite depois para outras pessoas.</p>
+        <button id="btn-setup" class="btn">Criar Senha</button>
+      </div>
+
+      <div id="login-entrar" class="hidden">
+        <div id="login-msg-erro" class="login-erro hidden"></div>
+
+        <div class="login-aba">
+          <button id="login-aba-admin" class="login-aba-btn ativo">Admin</button>
+          <button id="login-aba-convite" class="login-aba-btn">Convite</button>
+        </div>
+
+        <div id="login-form-admin">
+          <label>Senha de admin
+            <input type="password" id="login-senha-admin">
+          </label>
+          <button id="btn-login-admin" class="btn">Entrar</button>
+        </div>
+
+        <div id="login-form-convite" class="hidden">
+          <label>Código de convite
+            <input type="text" id="login-codigo-convite" placeholder="Ex: XXXX-XXXX">
+          </label>
+          <button id="btn-login-convite" class="btn">Usar Código</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app-container" class="hidden">
+    <nav id="nav" class="nav">
+      <button data-page="admin">Admin</button>
+      <button data-page="perfil" class="active">Perfil</button>
+      <button data-page="calcular">Calcular</button>
+      <button data-page="camera">Câmera</button>
+      <button data-page="galeria">Galeria</button>
+    </nav>
+
+    <main id="app">
+
+      <!-- ============ ADMIN ============ -->
+      <section id="page-admin" class="page">
+        <h1>Painel Admin</h1>
+
+        <div id="admin-autorizado">
+          <div class="admin-card">
+            <h2>🔑 Códigos de Convite</h2>
+            <p class="admin-dica">Gere códigos para outras pessoas usarem o app.</p>
+            <button id="btn-gerar-codigo" class="btn">Gerar Novo Código</button>
+
+            <div id="codigo-novo" class="codigo-novo hidden">
+              <strong>Código gerado:</strong>
+              <div class="codigo-valor" id="codigo-gerado"></div>
+              <button id="btn-copiar-codigo" class="btn-small">Copiar</button>
+              <button id="btn-fechar-codigo" class="btn-small btn-cinza">Fechar</button>
+            </div>
+
+            <hr>
+
+            <h2>Códigos Ativos</h2>
+            <div id="lista-codigos"></div>
+            <p id="sem-codigos" class="vazia">Nenhum código gerado ainda.</p>
+          </div>
+
+          <div class="admin-card">
+            <h2>🔒 Senha de Admin</h2>
+            <button id="btn-mudar-senha" class="btn-secundario">Alterar Senha</button>
+          </div>
+
+          <div class="admin-card">
+            <h2>ℹ️ Sobre</h2>
+              <p class="admin-dica">
+              Os códigos de convite ficam salvos na nuvem (Firestore).
+              Funcionam em qualquer dispositivo automaticamente.
+            </p>
+          </div>
+        </div>
+
+        <div id="admin-negado" class="vazia hidden">
+          <p>Você não tem permissão de admin.</p>
+          <p style="font-size:13px;color:#999;margin-top:8px">Faça login com a senha de admin para acessar.</p>
+        </div>
+      </section>
+
+      <!-- Modal alterar senha -->
+      <div id="modal-senha" class="modal-overlay hidden">
+        <div class="modal">
+          <h2>Alterar Senha de Admin</h2>
+          <form id="form-senha">
+            <label>Senha atual
+              <input type="password" id="senha-atual" required>
+            </label>
+            <label>Nova senha
+              <input type="password" id="senha-nova" required minlength="4">
+            </label>
+            <label>Confirmar nova senha
+              <input type="password" id="senha-confirmar" required minlength="4">
+            </label>
+            <div class="modal-botoes">
+              <button type="submit" class="btn">Salvar</button>
+              <button type="button" id="btn-cancelar-senha" class="btn btn-cinza">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ============ PERFIL ============ -->
+      <section id="page-perfil" class="page active">
+        <h1>Perfis</h1>
+
+        <div id="perfil-ativo" class="perfil-card hidden">
+          <img id="perfil-foto" src="" alt="Foto">
+          <div class="perfil-info">
+            <strong id="perfil-nome"></strong>
+            <span id="perfil-salario"></span>
+          </div>
+          <button id="btn-editar-perfil" class="btn-small">Editar</button>
+        </div>
+
+        <div id="sem-perfil" class="vazia">
+          <p>Nenhum perfil criado ainda.</p>
+        </div>
+
+        <button id="btn-novo-perfil" class="btn-secundario">+ Novo Perfil</button>
+
+        <hr>
+
+        <h2>Todos os Perfis</h2>
+        <div id="lista-perfis"></div>
+      </section>
+
+      <!-- Modal Perfil -->
+      <div id="modal-perfil" class="modal-overlay hidden">
+        <div class="modal">
+          <h2 id="modal-perfil-titulo">Novo Perfil</h2>
+          <form id="form-perfil">
+            <label>Nome
+              <input type="text" id="perfil-nome-input" required>
+            </label>
+            <label>Foto de perfil
+              <div class="foto-upload" id="foto-upload-area">
+                <img id="perfil-foto-preview" class="hidden" alt="">
+                <input type="file" id="perfil-foto-input" accept="image/*" capture="user">
+                <span class="foto-placeholder">Clique para escolher foto</span>
+              </div>
+            </label>
+            <label>Salário mensal (R$)
+              <input type="number" id="perfil-salario-input" step="0.01" min="0" required>
+            </label>
+            <label>Jornada mensal (horas)
+              <input type="number" id="perfil-jornada-input" value="220" min="1" required>
+            </label>
+
+            <h3>Taxas de horas extras</h3>
+            <label>Hora extra dias úteis (ex: 1.5 = 50%)
+              <input type="number" id="perfil-taxa50-input" step="0.01" min="1" value="1.5">
+            </label>
+            <label>Hora extra domingos/feriados (ex: 2.0 = 100%)
+              <input type="number" id="perfil-taxa100-input" step="0.01" min="1" value="2.0">
+            </label>
+            <label>Adicional noturno (ex: 1.2 = 20%)
+              <input type="number" id="perfil-taxaNot-input" step="0.01" min="1" value="1.2">
+            </label>
+
+            <div class="modal-botoes">
+              <button type="submit" class="btn">Salvar</button>
+              <button type="button" id="btn-cancelar-perfil" class="btn btn-cinza">Cancelar</button>
+            </div>
+            <input type="hidden" id="perfil-editando-id" value="">
+          </form>
+        </div>
+      </div>
+
+      <!-- ============ CALCULAR ============ -->
+      <section id="page-calcular" class="page">
+        <h1>Calcular Horas Extras</h1>
+
+        <div id="calc-sem-perfil" class="vazia">
+          <p>Crie um perfil primeiro para calcular.</p>
+        </div>
+
+        <div id="calc-com-perfil" class="hidden">
+          <div class="calc-perfil-info">
+            Calculando para: <strong id="calc-nome-perfil"></strong>
+          </div>
+          <form id="form-calculo">
+            <label>Salário mensal (R$)
+              <input type="number" id="calc-salario" step="0.01" min="0" required>
+            </label>
+            <label>Jornada mensal (horas)
+              <input type="number" id="calc-jornada" min="1" required>
+            </label>
+            <label>Horas extras 50% (dias úteis)
+              <input type="number" id="calc-extra50" value="0" min="0" step="0.5">
+            </label>
+            <label>Horas extras 100% (domingos/feriados)
+              <input type="number" id="calc-extra100" value="0" min="0" step="0.5">
+            </label>
+            <label>Horas ad. noturno
+              <input type="number" id="calc-noturno" value="0" min="0" step="0.5">
+            </label>
+            <button type="submit">Calcular</button>
+          </form>
+        </div>
+
+        <div id="resultado" class="resultado hidden"></div>
+      </section>
+
+      <!-- ============ CÂMERA ============ -->
+      <section id="page-camera" class="page">
+        <h1>Comprovante de Ponto</h1>
+        <div class="camera-container">
+          <video id="video" autoplay playsinline></video>
+          <canvas id="canvas" class="hidden"></canvas>
+        </div>
+        <div class="camera-controls">
+          <button id="btn-capturar">Capturar Foto</button>
+          <button id="btn-salvar" class="hidden">Salvar</button>
+          <button id="btn-descartar" class="hidden">Descartar</button>
+        </div>
+      </section>
+
+      <!-- ============ GALERIA ============ -->
+      <section id="page-galeria" class="page">
+        <h1>Comprovantes Salvos</h1>
+        <div id="galeria" class="galeria"></div>
+        <p id="galeria-vazia" class="vazia">Nenhum comprovante salvo ainda.</p>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
