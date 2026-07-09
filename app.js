@@ -106,9 +106,26 @@ async function initLogin() {
   if (!config || !config.passwordHash) {
     document.getElementById('login-setup').classList.remove('hidden')
     document.getElementById('login-entrar').classList.add('hidden')
-  } else {
-    document.getElementById('login-setup').classList.add('hidden')
-    document.getElementById('login-entrar').classList.remove('hidden')
+    return
+  }
+
+  document.getElementById('login-setup').classList.add('hidden')
+  document.getElementById('login-entrar').classList.remove('hidden')
+
+  // Auto-login com código salvo
+  const codigoSalvo = localStorage.getItem('conviteSalvo')
+  if (codigoSalvo) {
+    const snap = await firestore.collection('convites')
+      .where('codigo', '==', codigoSalvo)
+      .where('revogado', '==', false)
+      .get()
+    if (!snap.empty) {
+      isAdmin = false
+      mostrarApp()
+      initApp()
+    } else {
+      localStorage.removeItem('conviteSalvo')
+    }
   }
 }
 
@@ -163,6 +180,7 @@ document.getElementById('btn-login-admin').addEventListener('click', async () =>
 
 document.getElementById('btn-login-convite').addEventListener('click', async () => {
   const codigo = document.getElementById('login-codigo-convite').value.trim().toUpperCase()
+  const lembrar = document.getElementById('login-lembrar-codigo').checked
   const erro = document.getElementById('login-msg-erro')
 
   const snap = await firestore.collection('convites')
@@ -173,6 +191,9 @@ document.getElementById('btn-login-convite').addEventListener('click', async () 
   if (snap.empty) {
     erro.textContent = 'Código inválido ou já revogado.'; erro.classList.remove('hidden'); return
   }
+
+  if (lembrar) localStorage.setItem('conviteSalvo', codigo)
+  else localStorage.removeItem('conviteSalvo')
 
   erro.classList.add('hidden')
   isAdmin = false
