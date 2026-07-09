@@ -1,15 +1,17 @@
-const CACHE = 'horas-extras-v3'
+const CACHE = 'horas-extras-v4'
 const URLS = [
   '.',
   'index.html',
   'style.css',
   'app.js',
-  'firebase-config.js'
+  'firebase-config.js',
+  'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js'
 ]
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(URLS))
+    caches.open(CACHE).then(cache => cache.addAll(URLS).catch(() => {}))
   )
   self.skipWaiting()
 })

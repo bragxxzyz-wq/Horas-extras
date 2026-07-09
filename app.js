@@ -9,8 +9,13 @@ let capturedImage = null
 let isAdmin = false
 
 // ========== FIREBASE ==========
-firebase.initializeApp(firebaseConfig)
-const firestore = firebase.firestore()
+let firestore = null
+try {
+  firebase.initializeApp(firebaseConfig)
+  firestore = firebase.firestore()
+} catch (e) {
+  console.warn('Firebase offline:', e.message)
+}
 
 // ========== CRYPTO ==========
 async function sha256(str) {
@@ -67,39 +72,51 @@ async function getCacheFS(key) {
 
 // ========== CONFIG (Firestore) ==========
 async function getConfig() {
-  try {
-    const doc = await firestore.collection('config').doc('admin').get()
-    if (doc.exists) { const d = doc.data(); await cacheFS('config', d); return d }
-    return null
-  } catch {
-    return getCacheFS('config')
+  if (firestore) {
+    try {
+      const doc = await firestore.collection('config').doc('admin').get()
+      if (doc.exists) { const d = doc.data(); await cacheFS('config', d); return d }
+      return null
+    } catch {}
   }
+  return getCacheFS('config')
 }
 
 async function saveConfig(config) {
-  await firestore.collection('config').doc('admin').set(config)
   await cacheFS('config', config)
+  if (firestore) {
+    try { await firestore.collection('config').doc('admin').set(config) } catch {}
+  }
 }
 
 // ========== CONVITES (Firestore) ==========
 async function listarConvites() {
-  try {
-    const snap = await firestore.collection('convites').orderBy('createdAt', 'desc').get()
-    const dados = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    await cacheFS('convites', dados)
-    return dados
-  } catch {
-    return (await getCacheFS('convites')) || []
+  if (firestore) {
+    try {
+      const snap = await firestore.collection('convites').orderBy('createdAt', 'desc').get()
+      const dados = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      await cacheFS('convites', dados)
+      return dados
+    } catch {}
   }
+  return (await getCacheFS('convites')) || []
 }
 
 async function salvarConvite(c) {
+  if (!firestore) throw new Error('Offline: não é possível gerar convites sem internet')
   const ref = await firestore.collection('convites').add(c)
   return ref.id
 }
 
 async function atualizarConvite(id, data) {
+  if (!firestore) throw new Error('Offline: não é possível revogar convites sem internet')
   await firestore.collection('convites').doc(id).update(data)
+  // Atualiza cache local
+  const convites = await getCacheFS('convites')
+  if (convites) {
+    const item = convites.find(c => c.id === id)
+    if (item) { Object.assign(item, data); await cacheFS('convites', convites) }
+  }
 }
 
 // ========== PERFIS (IndexedDB) ==========
