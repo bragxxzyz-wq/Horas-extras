@@ -529,7 +529,6 @@ const canvas = document.getElementById('canvas')
 const btnCapturar = document.getElementById('btn-capturar')
 const btnSalvar = document.getElementById('btn-salvar')
 const btnDescartar = document.getElementById('btn-descartar')
-const horasInputs = document.getElementById('horas-inputs')
 
 async function iniciarCamera() {
   try {
@@ -541,12 +540,6 @@ async function iniciarCamera() {
   } catch (err) {
     alert('Não foi possível acessar a câmera: ' + err.message)
   }
-
-  const hoje = new Date().toISOString().slice(0, 10)
-  const horas = await getHorasDia(hoje)
-  document.getElementById('horas-normais').value = horas ? horas.normais : 0
-  document.getElementById('horas-extra50').value = horas ? horas.extra50 : 0
-  document.getElementById('horas-extra100').value = horas ? horas.extra100 : 0
 }
 
 function pararCamera() {
@@ -556,7 +549,6 @@ function pararCamera() {
 function descartarCaptura() {
   capturedImage = null
   canvas.classList.add('hidden'); video.classList.remove('hidden')
-  horasInputs.classList.add('hidden')
   btnCapturar.classList.remove('hidden'); btnSalvar.classList.add('hidden'); btnDescartar.classList.add('hidden')
 }
 
@@ -566,17 +558,11 @@ btnCapturar.addEventListener('click', () => {
   ctx.drawImage(video, 0, 0)
   capturedImage = canvas.toDataURL('image/jpeg', 0.9)
   canvas.classList.remove('hidden'); video.classList.add('hidden')
-  horasInputs.classList.remove('hidden')
   btnCapturar.classList.add('hidden'); btnSalvar.classList.remove('hidden'); btnDescartar.classList.remove('hidden')
 })
 
 btnSalvar.addEventListener('click', async () => {
   if (!capturedImage) return
-  const hNorm = parseFloat(document.getElementById('horas-normais').value) || 0
-  const h50 = parseFloat(document.getElementById('horas-extra50').value) || 0
-  const h100 = parseFloat(document.getElementById('horas-extra100').value) || 0
-  const hoje = new Date().toISOString().slice(0, 10)
-  await salvarHorasDia(hoje, hNorm, h50, h100)
   await salvarComprovante({ dataUrl: capturedImage, data: new Date().toISOString() })
   descartarCaptura()
   alert('Comprovante salvo!')

@@ -636,29 +636,6 @@ input:focus {
 #btn-salvar { background: #2e7d32; color: #fff; }
 #btn-descartar { background: #c62828; color: #fff; }
 
-.horas-inputs {
-  margin-top: 12px;
-}
-
-.horas-inputs.hidden { display: none; }
-
-.horas-row {
-  display: flex;
-  gap: 8px;
-}
-
-.horas-row label {
-  flex: 1;
-  font-size: 12px;
-  margin-bottom: 0;
-}
-
-.horas-row input {
-  font-size: 14px;
-  padding: 8px;
-  margin-top: 4px;
-}
-
 /* ---- Galeria ---- */
 .galeria-dia {
   margin-bottom: 20px;
