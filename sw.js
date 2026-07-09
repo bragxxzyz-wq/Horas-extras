@@ -1,10 +1,10 @@
-const CACHE = 'horas-extras-v2'
+const CACHE = 'horas-extras-v3'
 const URLS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/firebase-config.js'
+  '.',
+  'index.html',
+  'style.css',
+  'app.js',
+  'firebase-config.js'
 ]
 
 self.addEventListener('install', (e) => {
@@ -24,7 +24,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/index.html'))
+      fetch(e.request).catch(() => caches.match('index.html'))
     )
     return
   }

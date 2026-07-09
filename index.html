@@ -270,8 +270,12 @@
   <script src="firebase-config.js"></script>
   <script src="app.js"></script>
   <script>
+    // Remove service worker antigo (caminho errado) e registra o novo
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister())
+      })
+      navigator.serviceWorker.register('sw.js')
     }
   </script>
 </body>
