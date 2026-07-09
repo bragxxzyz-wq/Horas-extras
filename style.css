@@ -135,7 +135,42 @@ body {
 }
 
 #app-container {
+  padding-top: 50px;
   padding-bottom: 60px;
+}
+
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #1a73e8;
+  color: #fff;
+  z-index: 90;
+}
+
+.top-titulo {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.top-sair {
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 6px;
+  background: none;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.top-sair:hover {
+  background: rgba(255,255,255,0.15);
 }
 
 main {

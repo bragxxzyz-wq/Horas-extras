@@ -294,6 +294,15 @@ document.getElementById('form-senha').addEventListener('submit', async (e) => {
   alert('Senha alterada com sucesso!')
 })
 
+// ========== SAIR ==========
+document.getElementById('btn-sair').addEventListener('click', () => {
+  localStorage.removeItem('conviteSalvo')
+  isAdmin = false
+  perfilAtivoId = null
+  pararCamera()
+  mostrarLogin()
+})
+
 // ========== NAVEGAÇÃO ==========
 document.querySelectorAll('.nav button').forEach(btn => {
   btn.addEventListener('click', () => {
